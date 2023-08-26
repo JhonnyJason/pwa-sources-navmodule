@@ -13,7 +13,7 @@ navState = {}
 
 ############################################################
 rootState = {
-    base: "Root State"
+    base: "RootState"
     modifier: "none"
     depth: 0
 }
@@ -29,14 +29,13 @@ export initialize = ->
     return
 
 ############################################################
-export appEntry = ->
-    log "appEntry"
+export appLoaded = ->
+    log "appLoaded"
     olog {
         historyState: history.state
         historyLength: history.length
     }
-    log " "
-    if !history.state? then history.replaceState(rootState, "Root State") 
+    if !isValidHistoryState() then history.replaceState(rootState, "") 
     navState = history.state
     S.set("navState", navState)
     displayState(navState)
@@ -46,13 +45,12 @@ export appEntry = ->
 ############################################################
 historyStateChanged = (evnt) ->
     log "historyStateChanged"
-    olog {
-        historyState: history.state
-        historyLength: history.length
-    }
-    log " "
+    # olog {
+    #     historyState: history.state
+    #     historyLength: history.length
+    # }
 
-    if !history.state? then history.replaceState(rootState, "Root State") 
+    if !isValidHistoryState() then history.replaceState(rootState, "") 
     navState = history.state
     S.set("navState", navState)
     displayState(navState)
@@ -70,8 +68,19 @@ backNavigationFinished = ->
         backNavigationPromiseResolve = resolve
 
 ############################################################
+isValidHistoryState = ->
+    if !history.state? then return false
+    historyKeys = Object.keys(history.state)
+    rootKeys = Object.keys(rootState)
+    if historyKeys.length != rootKeys.length then return false
+
+    for hKey,idx in historyKeys
+        if hKey != rootKeys[idx] then return false
+    return true
+
+############################################################
 displayState = (state) ->
-    log "displayState"
+    return unless navstatedisplay?
     stateString = JSON.stringify(state, null, 4)
     navstatedisplay.innerHTML = stateString
     return
@@ -120,7 +129,8 @@ export addModification = (modifier)->
 
 export unmodify = ->
     log "unmodify"
-    return unless navState.modifier != "none"
+    return if navState.modifier == "none"
+
     ## Back navigation sets "navState"
     history.back()
     await backNavigationFinished()
