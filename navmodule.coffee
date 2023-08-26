@@ -31,10 +31,10 @@ export initialize = ->
 ############################################################
 export appLoaded = ->
     log "appLoaded"
-    olog {
-        historyState: history.state
-        historyLength: history.length
-    }
+    # olog {
+    #     historyState: history.state
+    #     historyLength: history.length
+    # }
     if !isValidHistoryState() then history.replaceState(rootState, "") 
     navState = history.state
     S.set("navState", navState)
