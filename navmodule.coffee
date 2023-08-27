@@ -39,7 +39,6 @@ export appLoaded = ->
     navState = history.state
     S.set("navState", navState)
     displayState(navState)
-    app.startUp()
     return
 
 ############################################################
@@ -99,11 +98,12 @@ export backToRoot = ->
     history.go(-depth)
     return
 
-export addStateNavigation = (state) ->
+export addStateNavigation = (newBase) ->
     log "addStateNavigation"
     await unmodify()
+    if navState.base == newBase and navState.modifier == "none" then return
     state = {
-        base: state
+        base: newBase
         modifier: "none"
         depth: navState.depth + 1
     }
@@ -115,6 +115,7 @@ export addStateNavigation = (state) ->
 
 export addModification = (modifier)->
     log "addModification"
+    if navState.modifier == modifier then return
     await unmodify()
     state = {
         base: navState.base
