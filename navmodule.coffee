@@ -23,14 +23,14 @@ backNavigationPromiseResolve = null
 
 ############################################################
 export initialize = ->
-    log "initialize"
+    ## prod log "initialize"
     window.addEventListener("popstate", historyStateChanged)
     # S.set("navState", navState) ## probably unnecessary
     return
 
 ############################################################
 export appLoaded = ->
-    log "appLoaded"
+    ## prod log "appLoaded"
     # olog {
     #     historyState: history.state
     #     historyLength: history.length
@@ -43,7 +43,7 @@ export appLoaded = ->
 
 ############################################################
 historyStateChanged = (evnt) ->
-    log "historyStateChanged"
+    ## prod log "historyStateChanged"
     # olog {
     #     historyState: history.state
     #     historyLength: history.length
@@ -55,7 +55,7 @@ historyStateChanged = (evnt) ->
     displayState(navState)
 
     if backNavigationPromiseResolve? 
-        log "resolving backNavigation Promise"
+        ## prod log "resolving backNavigation Promise"
         backNavigationPromiseResolve()
         backNavigationPromiseResolve = null
     return
@@ -90,7 +90,7 @@ displayState = (state) ->
 #region Navigation Functions
 
 export backToRoot = ->
-    log "backToRoot"
+    ## prod log "backToRoot"
     depth = navState.depth
     return if depth == 0
 
@@ -99,7 +99,7 @@ export backToRoot = ->
     return
 
 export addStateNavigation = (newBase) ->
-    log "addStateNavigation"
+    ## prod log "addStateNavigation"
     await unmodify()
     if navState.base == newBase and navState.modifier == "none" then return
     state = {
@@ -114,7 +114,7 @@ export addStateNavigation = (newBase) ->
     return
 
 export addModification = (modifier)->
-    log "addModification"
+    ## prod log "addModification"
     if navState.modifier == modifier then return
     await unmodify()
     state = {
@@ -129,7 +129,7 @@ export addModification = (modifier)->
     return
 
 export unmodify = ->
-    log "unmodify"
+    ## prod log "unmodify"
     return if navState.modifier == "none"
 
     ## Back navigation sets "navState"
