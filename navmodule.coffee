@@ -15,6 +15,7 @@ navState = {}
 rootState = {
     base: "RootState"
     modifier: "none"
+    ctx: null
     depth: 0
 }
 
@@ -89,22 +90,16 @@ displayState = (state) ->
 ############################################################
 #region Navigation Functions
 
-export backToRoot = ->
-    ## prod log "backToRoot"
-    depth = navState.depth
-    return if depth == 0
-
-    ## Back navigation sets "navState"
-    history.go(-depth)
-    return
-
-export addStateNavigation = (newBase) ->
+export addStateNavigation = (newBase, context) ->
     ## prod log "addStateNavigation"
     await unmodify()
+    ## Check: what to do if only Context changed?
+    ## For now we ignore context as this is not a navigatable change
     if navState.base == newBase and navState.modifier == "none" then return
     state = {
         base: newBase
         modifier: "none"
+        ctx: context || null
         depth: navState.depth + 1
     }
     navState = state
@@ -113,19 +108,43 @@ export addStateNavigation = (newBase) ->
     displayState(navState)
     return
 
-export addModification = (modifier)->
+export addModification = (modifier, context) ->
     ## prod log "addModification"
+    ## Check: what to do if only Context changed?
+    ## For now we ignore context as this is not a navigatable change
     if navState.modifier == modifier then return
     await unmodify()
     state = {
         base: navState.base
         modifier: modifier
+        ctx: context || null
         depth: navState.depth + 1
     }
     navState = state
     history.pushState(navState, "")
     S.set("navState", navState)
     displayState(navState)
+    return
+
+############################################################
+export backToRoot = ->
+    ## prod log "backToRoot"
+    depth = navState.depth
+    return if depth == 0
+
+    ## Back navigation sets "navState" by popstate event
+    history.go(-depth)
+    await backNavigationFinished()
+    return
+
+export backOne = ->
+    ## prod log "backOne"
+    depth = navState.depth
+    return if depth == 0
+
+    ## Back navigation sets "navState" by popstate event
+    history.back()
+    await backNavigationFinished()
     return
 
 export unmodify = ->
