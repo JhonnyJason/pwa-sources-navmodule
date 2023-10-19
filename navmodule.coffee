@@ -24,14 +24,14 @@ backNavigationPromiseResolve = null
 
 ############################################################
 export initialize = ->
-    ## prod log "initialize"
+    log "initialize"
     window.addEventListener("popstate", historyStateChanged)
     # S.set("navState", navState) ## probably unnecessary
     return
 
 ############################################################
 export appLoaded = ->
-    ## prod log "appLoaded"
+    log "appLoaded"
     # olog {
     #     historyState: history.state
     #     historyLength: history.length
@@ -44,7 +44,7 @@ export appLoaded = ->
 
 ############################################################
 historyStateChanged = (evnt) ->
-    ## prod log "historyStateChanged"
+    log "historyStateChanged"
     # olog {
     #     historyState: history.state
     #     historyLength: history.length
@@ -56,7 +56,7 @@ historyStateChanged = (evnt) ->
     displayState(navState)
 
     if backNavigationPromiseResolve? 
-        ## prod log "resolving backNavigation Promise"
+        log "resolving backNavigation Promise"
         backNavigationPromiseResolve()
         backNavigationPromiseResolve = null
     return
@@ -91,7 +91,7 @@ displayState = (state) ->
 #region Navigation Functions
 
 export addStateNavigation = (newBase, context) ->
-    ## prod log "addStateNavigation"
+    log "addStateNavigation"
     await unmodify()
     ## Check: what to do if only Context changed?
     ## For now we ignore context as this is not a navigatable change
@@ -109,7 +109,7 @@ export addStateNavigation = (newBase, context) ->
     return
 
 export addModification = (modifier, context) ->
-    ## prod log "addModification"
+    log "addModification"
     ## Check: what to do if only Context changed?
     ## For now we ignore context as this is not a navigatable change
     if navState.modifier == modifier then return
@@ -128,7 +128,7 @@ export addModification = (modifier, context) ->
 
 ############################################################
 export backToRoot = ->
-    ## prod log "backToRoot"
+    log "backToRoot"
     depth = navState.depth
     return if depth == 0
 
@@ -138,7 +138,7 @@ export backToRoot = ->
     return
 
 export backOne = ->
-    ## prod log "backOne"
+    log "backOne"
     depth = navState.depth
     return if depth == 0
 
@@ -148,7 +148,7 @@ export backOne = ->
     return
 
 export unmodify = ->
-    ## prod log "unmodify"
+    log "unmodify"
     return if navState.modifier == "none"
 
     ## Back navigation sets "navState"
