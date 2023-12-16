@@ -150,7 +150,7 @@ export backOne = ->
 export unmodify = ->
     log "unmodify"
     return if navState.modifier == "none"
-
+    olog navState
     ## Back navigation sets "navState"
     history.back()
     await backNavigationFinished()
