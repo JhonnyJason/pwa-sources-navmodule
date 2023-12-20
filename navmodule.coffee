@@ -128,6 +128,7 @@ export addModification = (modifier, context) ->
 
 ############################################################
 export backToRoot = ->
+    if backNavigationPromiseResolve? then return
     log "backToRoot"
     depth = navState.depth
     return if depth == 0
@@ -138,6 +139,7 @@ export backToRoot = ->
     return
 
 export backOne = ->
+    if backNavigationPromiseResolve? then return
     log "backOne"
     depth = navState.depth
     return if depth == 0
@@ -148,12 +150,16 @@ export backOne = ->
     return
 
 export unmodify = ->
+    if backNavigationPromiseResolve? then return
     log "unmodify"
     return if navState.modifier == "none"
-    olog navState
+    
+    olog { navState }
+
     ## Back navigation sets "navState"
     history.back()
     await backNavigationFinished()
+    log "unmodification finished!"
     return
 
 #endregion
