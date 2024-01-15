@@ -24,21 +24,20 @@ backNavigationPromiseResolve = null
 
 ############################################################
 export initialize = ->
-    ## prod log "initialize"
+    log "initialize"
     window.addEventListener("popstate", historyStateChanged)
-    # S.set("navState", navState) ## probably unnecessary
     return
 
 ############################################################
 export appLoaded = ->
-    ## prod log "appLoaded"
-    # olog {
-    #     historyState: history.state
-    #     historyLength: history.length
-    # }
+    log "appLoaded"
+    olog {
+        historyState: history.state
+        historyLength: history.length
+    }
     if !isValidHistoryState() then history.replaceState(rootState, "") 
     navState = history.state
-    S.set("navState", navState)
+    app.loadAppWithNavState(navState)
     displayState(navState)
     return
 
