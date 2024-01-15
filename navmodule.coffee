@@ -24,14 +24,14 @@ backNavigationPromiseResolve = null
 
 ############################################################
 export initialize = ->
-    log "initialize"
+    ## prod log "initialize"
     window.addEventListener("popstate", historyStateChanged)
     # S.set("navState", navState) ## probably unnecessary
     return
 
 ############################################################
 export appLoaded = ->
-    log "appLoaded"
+    ## prod log "appLoaded"
     # olog {
     #     historyState: history.state
     #     historyLength: history.length
@@ -44,7 +44,7 @@ export appLoaded = ->
 
 ############################################################
 historyStateChanged = (evnt) ->
-    log "historyStateChanged"
+    ## prod log "historyStateChanged"
     # olog {
     #     historyState: history.state
     #     historyLength: history.length
@@ -52,13 +52,15 @@ historyStateChanged = (evnt) ->
 
     if !isValidHistoryState() then history.replaceState(rootState, "") 
     navState = history.state
-    S.set("navState", navState)
+    # TODO: always act directly on the functions of the appcore
+    # S.set("navState", navState)
     displayState(navState)
 
-    if backNavigationPromiseResolve? 
-        log "resolving backNavigation Promise"
-        backNavigationPromiseResolve()
-        backNavigationPromiseResolve = null
+    # better look into the local storage state to notice any back navigation
+    # if backNavigationPromiseResolve? 
+    #     ## prod log "resolving backNavigation Promise"
+    #     backNavigationPromiseResolve()
+    #     backNavigationPromiseResolve = null
     return
 
 ############################################################
@@ -91,7 +93,7 @@ displayState = (state) ->
 #region Navigation Functions
 
 export addStateNavigation = (newBase, context) ->
-    log "addStateNavigation"
+    ## prod log "addStateNavigation"
     await unmodify()
     ## Check: what to do if only Context changed?
     ## For now we ignore context as this is not a navigatable change
@@ -109,7 +111,7 @@ export addStateNavigation = (newBase, context) ->
     return
 
 export addModification = (modifier, context) ->
-    log "addModification"
+    ## prod log "addModification"
     ## Check: what to do if only Context changed?
     ## For now we ignore context as this is not a navigatable change
     if navState.modifier == modifier then return
@@ -120,6 +122,7 @@ export addModification = (modifier, context) ->
         ctx: context || null
         depth: navState.depth + 1
     }
+
     navState = state
     history.pushState(navState, "")
     S.set("navState", navState)
@@ -129,7 +132,7 @@ export addModification = (modifier, context) ->
 ############################################################
 export backToRoot = ->
     if backNavigationPromiseResolve? then return
-    log "backToRoot"
+    ## prod log "backToRoot"
     depth = navState.depth
     return if depth == 0
 
@@ -140,7 +143,7 @@ export backToRoot = ->
 
 export backOne = ->
     if backNavigationPromiseResolve? then return
-    log "backOne"
+    ## prod log "backOne"
     depth = navState.depth
     return if depth == 0
 
@@ -151,10 +154,8 @@ export backOne = ->
 
 export unmodify = ->
     if backNavigationPromiseResolve? then return
-    log "unmodify"
+    ## prod log "unmodify"
     return if navState.modifier == "none"
-    
-    olog { navState }
 
     ## Back navigation sets "navState"
     history.back()
