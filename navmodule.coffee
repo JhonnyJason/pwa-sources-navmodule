@@ -16,20 +16,33 @@ rootState = {
     base: "RootState"
     modifier: "none"
     ctx: null
-    depth: history.length - 1
+    # depth: history.length - 1
+    depth: 0
+    navLineId: null
+    navAction: null
 }
 
+############################################################
+pageloadAction = {
+    action: "pageload"
+    timestamp: Date.now()
+    navLineId: null
+}
+
+refreshAction = {
+    action: "refresh"
+    timestamp: Date.now()
+    navLineId: null
+}
+
+############################################################
 NAV_info = {
-    allNavStates: []
-    currentIndex: 0
-    firstRootStateIndex: history.length - 1
+    nextNavLineId: 1000
+    lastNavAction: pageloadAction
 }
 
-# ## Maybe use it as first info
-# NAV_first_info = {
-#     cause: "pageload"
-#     pageloadDepth: history.length - 1
-# }
+############################################################
+navLineId = null
 
 ############################################################
 backNavigationPromiseResolve = null
@@ -50,39 +63,38 @@ export initialize = ->
 
 ############################################################
 export appLoaded = ->
-    log "appLoaded"
-    olog {
-        historyState: history.state
-        historyLength: history.length
-    }
-
+    # log "appLoaded"
+    # olog {
+    #     historyState: history.state
+    #     historyLength: history.length
+    # }
     if !isValidHistoryState() 
         ## This is the very first appload    
-        log "-> Initial AppLoad :-)"
-        ## we expect: emtpy allNavStates
-        if NAV_info.allNavStates.length > 0 then throw new Error("NAV_info.allNavStates!")
-        ## we expect: currentIndex be 0
-        if NAV_info.currentIndex != 0 then throw new Error("NAV_info.currentIndex")
-        ## we expect: firstRootStateIndex be history.length - 1
-        if NAV_info.firstRootStateIndex != history.length - 1 then throw new Error("NAV_info.firstRootStateIndex")
+        # log "-> Initial AppLoad :-)"
+        navLineId = NAV_info.nextNavLineId
+        pageloadAction.navLineId = navLineId
+        rootState.navLineId = navLineId
+        rootState.navAction = pageloadAction
 
-        NAV_info.allNavStates.push(rootState)
+        NAV_info.nextNavLineId++
+        NAV_info.lastNavAction = pageloadAction
         storeNavInfo(NAV_info)
+        
         history.replaceState(rootState, "")
     else
         ## we must've done some kind of refresh
-        log " -> App Refreshed!"
-        ## we expect: non-empty allNavStates
-        if NAV_info.allNavStates.length == 0 then throw new Error("NAV_info.allNavStates!")
+        # log " -> App Refreshed!"
+        navState = history.state
+        navLineId = navState.navLineId
+        refreshAction.navLineId = navLineId
+        navState.navAction = refreshAction
+
+        NAV_info.lastNavAction = refreshAction
+        storeNavInfo(NAV_info)        
         
+        history.replaceState(navState, "")
 
     navState = history.state
-    ## Here
-
-    # ## Analyse NAV_latest_info
-    # NAV_latest_info = S.load("NAV_latest_info")
-    # olog { NAV_latest_info }
-
     displayState(navState)
     app.loadAppWithNavState(navState)
     return
@@ -95,9 +107,10 @@ historyStateChanged = (evnt) ->
         historyState: history.state
         historyLength: history.length
     }
-    if !isValidHistoryState() then history.replaceState(rootState, "") 
+    if !isValidHistoryState() then throw new Error("No Valid History State on popstateEvent!")
+    # history.replaceState(rootState, "") 
     navState = history.state
-    
+    navLineId = navState.navLineId
     # ## Analyse NAV_latest_info
     # NAV_latest_info = S.load("NAV_latest_info")
     # olog { NAV_latest_info }
