@@ -56,9 +56,6 @@ export initialize = ->
     if !info? then storeNavInfo(NAV_info)
     
     NAV_info = JSON.parse(sessionStorage.getItem("NAV_info"))
-    # NAV_latest_info = S.load("NAV_latest_info")
-    # if !NAV_latest_info? or !NAV_latest_info.cause?
-    #     S.save("NAV_latest_info", NAV_first_info, true)
     return
 
 ############################################################
@@ -103,26 +100,25 @@ export appLoaded = ->
 historyStateChanged = (evnt) ->
     log "historyStateChanged"
     olog {
-        eventState: evnt.state
+        # eventState: evnt.state ## is the same as history.state
         historyState: history.state
         historyLength: history.length
     }
-    if !isValidHistoryState() then throw new Error("No Valid History State on popstateEvent!")
-    # history.replaceState(rootState, "") 
+    if !isValidHistoryState() then throw new Error("No Valid History State on popstateEvent!") ## What to do with this? treat it as pageLoad event?
+    
     navState = history.state
     navLineId = navState.navLineId
-    # ## Analyse NAV_latest_info
-    # NAV_latest_info = S.load("NAV_latest_info")
-    # olog { NAV_latest_info }
 
-    # better look into the local storage state to notice any back navigation
-    # if backNavigationPromiseResolve? 
-    #     ## prod log "resolving backNavigation Promise"
-    #     backNavigationPromiseResolve()
-    #     backNavigationPromiseResolve = null
-
+    navState.navAction = NAV_info.lastNavAction
+    
+    history.replaceState(navState, "")
     displayState(navState)
-    app.setNavState(navState)    
+    # check nav Action to notice back navigation
+    if navState.navAction.action == "back" and backNavigationPromiseResolve?
+        ## prod log "resolving backNavigation Promise"
+        backNavigationPromiseResolve()
+        backNavigationPromiseResolve = null
+    app.loadAppWithNavState(navState)
     return
 
 ############################################################
@@ -132,28 +128,73 @@ navigateTo = (base, modifier, context) ->
     log "navigateTo"
     olog {base, modifier, context}
 
+    navAction = {
+        action: "nav"
+        timestamp: Date.now()
+        navLineId: navLineId
+    }
+
     navState.base = base
     navState.modifier = modifier
     navState.ctx = context || null
     navState.depth = navState.depth + 1
+    navState.navLineId = navLineId
+    navState.navAction = navAction
 
-    # NAV_latest_info = {
-    #     cause: "modifier" 
-    #     direction: "forward"
-    #     newDepth: navState.depth
-    # }
-    # S.save("NAV_latest_info", NAV_latest_info, true)
+    NAV_info.lastNavAction = navAction
+    storeNavInfo(NAV_info)        
 
     history.pushState(navState, "")
     displayState(navState)
     app.setNavState(navState)
     return
 
+navigateBack = (depth) ->
+    if backNavigationPromiseResolve? then return
 
+    navAction = {
+        action: "back"
+        timestamp: Date.now()
+        navLineId: navLineId
+    }
+
+    NAV_info.lastNavAction = navAction
+    storeNavInfo(NAV_info)        
+
+    ## Back navigation sets "navState" by popstate event
+    history.go(-depth)
+
+    return await backNavigationFinished()
+############################################################
+navReplace = (base, modifier, context) ->
+    log "navReplace"
+    olog { base, modifier, context }
+    navAction = {
+        action: "nav"
+        timestamp: Date.now()
+        navLineId: navLineId
+    }
+
+    navState.base = base
+    navState.modifier = modifier
+    navState.ctx = context || null
+    navState.navLineId = navLineId
+    navState.navAction = navAction
+
+    NAV_info.lastNavAction = navAction
+    storeNavInfo(NAV_info)       
+
+    history.replaceState(navState, "")
+    displayState(navState)
+    app.setNavState(navState)
+
+    return
+
+############################################################
 # Do we need this?
-# backNavigationFinished = ->
-#     return new Promise (resolve) ->
-#         backNavigationPromiseResolve = resolve
+backNavigationFinished = ->
+    return new Promise (resolve) ->
+        backNavigationPromiseResolve = resolve
 
 ############################################################
 isValidHistoryState = ->
@@ -202,116 +243,46 @@ export navigateModifier = (newMod, context) ->
     if oldMod != "none" and newMod == "none"
         log "case 2 - oldMod is not 'none' newMod is 'none'"
         ## navigate backwards
-
-        NAV_latest_info = {
-            cause: "modifier" 
-            direction: "back"
-            newDepth: navState.depth - 1
-        }
-        S.save("NAV_latest_info", NAV_latest_info, true)
-
-        history.back()
-        # await backNavigationFinished()
-        return
+        return await backOne()
+        # backOne()
+        # return
 
     ## case 3 - oldMod is not "none" newMod is different
     if oldMod != "none"
         log "case 3 - oldMod is not 'none' newMod is different"        
         ## replace state with new State
-        navState.modifier = newMod
-        navState.ctx = context || null
-
-        NAV_latest_info = {
-            cause: "modifier" 
-            direction: "replace"
-            newDepth: navState.depth
-        }
-        S.save("NAV_latest_info", NAV_latest_info, true)
-
-        history.replaceState(navState, "")
-        app.setNavState(navState)
-        displayState(navState)
-
+        navReplace(navState.base, newMod, context)
+        return
+    
     return
 
 export navigateBaseState = (newBase, context) ->
     log "navigateBaseState"
     olog {newBase, context}
+    oldMod = navState.modifier
+
+    if oldMod == "none" then return navigateTo(newBase, oldMod, context)
+
+    ## If we have some modifier on, then we need to replace the current state
+    navReplace(newBase, "none", context)
     return
 
-
-
-## ================== Old Functions ====================
-export addStateNavigation = (newBase, context) ->
-    ## prod log "addStateNavigation"
-    await unmodify()
-
-    ## Check: what to do if only Context changed?
-    ## For now we ignore context as this is not a navigatable change
-    if navState.base == newBase and navState.modifier == "none" then return
-    state = {
-        base: newBase
-        modifier: "none"
-        ctx: context || null
-        depth: navState.depth + 1
-    }
-    navState = state
-    history.pushState(navState, "")
-    S.set("navState", navState)
-    displayState(navState)
-    return
-
-export addModification = (modifier, context) ->
-    ## prod log "addModification"
-    ## Check: what to do if only Context changed?
-    ## For now we ignore context as this is not a navigatable change
-    if navState.modifier == modifier then return
-    await unmodify()
-    state = {
-        base: navState.base
-        modifier: modifier
-        ctx: context || null
-        depth: navState.depth + 1
-    }
-
-    navState = state
-    history.pushState(navState, "")
-    S.set("navState", navState)
-    displayState(navState)
-    return
 
 ############################################################
 export backToRoot = ->
-    if backNavigationPromiseResolve? then return
     ## prod log "backToRoot"
     depth = navState.depth
     return if depth == 0
-
-    ## Back navigation sets "navState" by popstate event
-    history.go(-depth)
-    await backNavigationFinished()
-    return
+    return navigateBack(depth)
 
 export backOne = ->
-    if backNavigationPromiseResolve? then return
     ## prod log "backOne"
     depth = navState.depth
-    return if depth == 0
+    return if depth == 0    
+    return navigateBack(1)
 
-    ## Back navigation sets "navState" by popstate event
-    history.back()
-    await backNavigationFinished()
-    return
+export back = backOne
 
-export unmodify = ->
-    if backNavigationPromiseResolve? then return
-    ## prod log "unmodify"
-    return if navState.modifier == "none"
-
-    ## Back navigation sets "navState"
-    history.back()
-    await backNavigationFinished()
-    log "unmodification finished!"
-    return
+export unmodify = -> await navigateModifier("none")
 
 #endregion
