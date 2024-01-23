@@ -18,7 +18,6 @@ rootState = {
     ctx: null
     # depth: history.length - 1
     depth: 0
-    navLineId: null
     navAction: null
 }
 
@@ -26,26 +25,16 @@ rootState = {
 pageloadAction = {
     action: "pageload"
     timestamp: Date.now()
-    navLineId: null
-}
-
-refreshAction = {
-    action: "refresh"
-    timestamp: Date.now()
-    navLineId: null
 }
 
 ############################################################
 NAV_info = {
-    nextNavLineId: 1000
     lastNavAction: pageloadAction
 }
 
 ############################################################
-navLineId = null
-
-############################################################
-backNavigationPromiseResolve = null
+backNavPromiseResolve = null
+backNavPromiseTimestamp = null
 
 ############################################################
 export initialize = ->
@@ -60,21 +49,16 @@ export initialize = ->
 
 ############################################################
 export appLoaded = ->
-    # log "appLoaded"
-    # olog {
-    #     historyState: history.state
-    #     historyLength: history.length
-    # }
+    log "appLoaded"
+    olog {
+        historyState: history.state
+        historyLength: history.length
+    }
     if !isValidHistoryState() 
         ## This is the very first appload    
         # log "-> Initial AppLoad :-)"
-        navLineId = NAV_info.nextNavLineId
-        pageloadAction.navLineId = navLineId
-        rootState.navLineId = navLineId
         rootState.navAction = pageloadAction
-
-        NAV_info.nextNavLineId++
-        NAV_info.lastNavAction = pageloadAction
+        NAV_info.lastNavAction = rootState.navAction
         storeNavInfo(NAV_info)
         
         history.replaceState(rootState, "")
@@ -82,11 +66,8 @@ export appLoaded = ->
         ## we must've done some kind of refresh
         # log " -> App Refreshed!"
         navState = history.state
-        navLineId = navState.navLineId
-        refreshAction.navLineId = navLineId
-        navState.navAction = refreshAction
-
-        NAV_info.lastNavAction = refreshAction
+        navState.navAction = getBrowserNavAction()
+        NAV_info.lastNavAction = navState.navAction
         storeNavInfo(NAV_info)        
         
         history.replaceState(navState, "")
@@ -99,6 +80,11 @@ export appLoaded = ->
 ############################################################
 historyStateChanged = (evnt) ->
     log "historyStateChanged"
+    ## Assumption: this only happens on:
+    #    - Browser Forward
+    #    - Browser Back 
+    #    - Code Back -> only this is interesting to us
+
     olog {
         # eventState: evnt.state ## is the same as history.state
         historyState: history.state
@@ -107,18 +93,16 @@ historyStateChanged = (evnt) ->
     if !isValidHistoryState() then throw new Error("No Valid History State on popstateEvent!") ## What to do with this? treat it as pageLoad event?
     
     navState = history.state
-    navLineId = navState.navLineId
-
-    navState.navAction = NAV_info.lastNavAction
+    isCodeBackNav = checkCodeBackNavAction(NAV_info.lastNavAction)
+    
+    if isCodeBackNav then navState.navAction = NAV_info.lastNavAction
+    else navState.navAction = getBrowserNavAction()
     
     history.replaceState(navState, "")
     displayState(navState)
-    # check nav Action to notice back navigation
-    if navState.navAction.action == "back" and backNavigationPromiseResolve?
-        ## prod log "resolving backNavigation Promise"
-        backNavigationPromiseResolve()
-        backNavigationPromiseResolve = null
     app.loadAppWithNavState(navState)
+    
+    if isCodeBackNav then resolveCodeBackNav()
     return
 
 ############################################################
@@ -131,14 +115,12 @@ navigateTo = (base, modifier, context) ->
     navAction = {
         action: "nav"
         timestamp: Date.now()
-        navLineId: navLineId
     }
 
     navState.base = base
     navState.modifier = modifier
     navState.ctx = context || null
     navState.depth = navState.depth + 1
-    navState.navLineId = navLineId
     navState.navAction = navAction
 
     NAV_info.lastNavAction = navAction
@@ -150,21 +132,22 @@ navigateTo = (base, modifier, context) ->
     return
 
 navigateBack = (depth) ->
-    if backNavigationPromiseResolve? then return
+    if backNavPromiseResolve? then return
 
     navAction = {
         action: "back"
         timestamp: Date.now()
-        navLineId: navLineId
     }
 
     NAV_info.lastNavAction = navAction
     storeNavInfo(NAV_info)        
 
+    backNavPromise = createBackNavPromise(navAction)
     ## Back navigation sets "navState" by popstate event
     history.go(-depth)
 
-    return await backNavigationFinished()
+    return backNavPromise
+
 ############################################################
 navReplace = (base, modifier, context) ->
     log "navReplace"
@@ -178,7 +161,6 @@ navReplace = (base, modifier, context) ->
     navState.base = base
     navState.modifier = modifier
     navState.ctx = context || null
-    navState.navLineId = navLineId
     navState.navAction = navAction
 
     NAV_info.lastNavAction = navAction
@@ -189,12 +171,21 @@ navReplace = (base, modifier, context) ->
     app.setNavState(navState)
 
     return
+    
+############################################################
 
 ############################################################
-# Do we need this?
-backNavigationFinished = ->
-    return new Promise (resolve) ->
-        backNavigationPromiseResolve = resolve
+createBackNavPromise = (navAction) ->
+    backNavPromiseTimestamp = navAction.timestamp
+    pConstruct = (resolve) -> backNavPromiseResolve = resolve
+    return new Promise(pConstruct)
+
+############################################################
+resolveCodeBackNav = ->
+    backNavPromiseResolve()
+    backNavPromiseResolve = null
+    backNavPromiseTimestamp = null 
+    return
 
 ############################################################
 isValidHistoryState = ->
@@ -208,6 +199,12 @@ isValidHistoryState = ->
     return true
 
 ############################################################
+checkCodeBackNavAction = (navAction) ->
+    if navAction.action != "back" then return false
+    if navAction.timestamp != backNavPromiseTimestamp then return false
+    return true
+
+############################################################
 displayState = (state) ->
     return unless navstatedisplay?
     stateString = JSON.stringify(state, null, 4)
@@ -216,6 +213,14 @@ displayState = (state) ->
 
 ############################################################
 storeNavInfo = (info) -> sessionStorage.setItem("NAV_info", JSON.stringify(info))
+
+
+############################################################
+getBrowserNavAction = ->
+    return {
+        action: "browserNav {refresh, back or forward}"
+        timestamp: Date.now()
+    }
 
 #endregion
 
